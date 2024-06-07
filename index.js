@@ -22,6 +22,23 @@ const client = new MongoClient(uri, {
   }
 });
 
+//define middleware function
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json("Unauthorized: No token provided");
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, 'secretkey');
+    req.user = decoded; // Optional: Attach user payload to request object
+    next(); // Proceed to the next middleware/route handler
+  } catch (error) {
+    res.status(403).json("Unauthorized: Invalid token");
+  }
+};
+
 //register endpoint
 app.post('/register', async (req, res) => {
   let existingUser = await client.db("teeshihqun").collection("lab").findOne(
@@ -64,27 +81,22 @@ app.post('/login', async (req, res) => {
 })
 
 //user endpoint
-app.get('/user/:id', async (req, res) => {
+app.get('/user/:id', verifyToken, async (req, res) => {
   console.log(req.params.username);
-  let result = await client.db("teeshihqun").collection("lab").findOne(
-    {
-      _id: new ObjectId(req.params.id),
-    });
-  console.log(result);
-  res.json(result);
+  if(req.user._id == req.params.id){
+    console.log("authorized")
+    let result = await client.db("teeshihqun").collection("lab").findOne(
+      {
+        _id: new ObjectId(req.params.id),
+      });
+    console.log(result);
+    res.json(result);
+  }
 })
 
 //user endpoint
-app.patch('/user/:id', async (req, res) => {
-  if(!req.headers.authorization){
-    res.json("unauthorized")
-  }
-
-  const token=req.headers.authorization.split(' ')[1];
-  
-  try{
-    let decoded=jwt.verify(token,'secretkey');
-    if(decoded._id==req.params.id){
+app.patch('/user/:id', verifyToken, async (req, res) => {
+    if(req.user._id == req.params.id){
       console.log("authorized")
         let result = await client.db("teeshihqun").collection("lab").updateOne(
         {
@@ -99,21 +111,17 @@ app.patch('/user/:id', async (req, res) => {
       console.log(result);
       res.json(result);
     }
-    else{
-      res.json("unauthorized")
-    }
-  }
-  catch(err){
-    res.json("unauthorized")
-  }
 })
   
 //user endpoint
-app.delete('/user/:id', async (req, res) => {
-  let result = await client.db("teeshihqun").collection("lab").deleteOne(
-    {
-      _id: new ObjectId(req.params.id),
-    });
-  console.log(result);
-  res.json(result);
+app.delete('/user/:id', verifyToken, async (req, res) => {
+  if(req.user._id == req.params.id){
+    console.log("authorized")
+    let result = await client.db("teeshihqun").collection("lab").deleteOne(
+      {
+        _id: new ObjectId(req.params.id),
+      });
+    console.log(result);
+    res.json(result);
+  }
 })
