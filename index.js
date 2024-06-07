@@ -4,10 +4,7 @@ const port = process.env.PORT || 3000;
 const bcrypt = require('bcrypt');
 const { ObjectId } = require('mongodb');
 app.use(express.json())  
-
-app.get('/', (req, res) => { 
-   res.send('Hello World!') 
-}) 
+const jwt=require('jsonwebtoken');
 
 app.listen(port, () => { 
    console.log(`Example app listening on port ${port}`)
@@ -25,10 +22,18 @@ const client = new MongoClient(uri, {
   }
 });
 
-app.post('/user', async (req, res) => {
+//register endpoint
+app.post('/register', async (req, res) => {
+  let existingUser = await client.db("teeshihqun").collection("lab").findOne(
+    {
+      name: req.body.name,
+    });
+  if (existingUser) {
+    res.json("user already exists");
+  }else{
     const hash = bcrypt.hashSync(req.body.password, 10);
-  // Store hash in your password DB.
-    let result = await client.db("teeshihqun").collection("lab").insertOne(
+    // Store hash in your password DB.
+    let newUser = await client.db("teeshihqun").collection("lab").insertOne(
       //await must with async
       {
         name: req.body.name,
@@ -36,39 +41,79 @@ app.post('/user', async (req, res) => {
         year: req.body.year,
         password: hash,
       });
-    console.log(result);
-    res.json(result);
-  })
+    res.json("register success");
+  }
+});
 
-  app.get('/user/:username', async (req, res) => {
-    console.log(req.params.username);
-    let result = await client.db("teeshihqun").collection("lab").findOne(
-      {
-        name: req.params.username,
-      });
-    console.log(result);
-    res.json(result);
-  })
+//login endpoint
+app.post('/login', async (req, res) => {
+  let result = await client.db("teeshihqun").collection("lab").findOne(
+    {
+      name: req.body.name,
+    });
+  console.log(result);
+  if (bcrypt.compareSync(req.body.password, result.password)==true) {
+    var token=jwt.sign({
+      _id:result._id,
+      name:result.name,
+    },'secretkey',{expiresIn:'1h'});
+    res.json(token);
+  } else {
+    res.json("login failed");
+  }
+})
+
+//user endpoint
+app.get('/user/:id', async (req, res) => {
+  console.log(req.params.username);
+  let result = await client.db("teeshihqun").collection("lab").findOne(
+    {
+      _id: new ObjectId(req.params.id),
+    });
+  console.log(result);
+  res.json(result);
+})
+
+//user endpoint
+app.patch('/user/:id', async (req, res) => {
+  if(!req.headers.authorization){
+    res.json("unauthorized")
+  }
+
+  const token=req.headers.authorization.split(' ')[1];
   
-  app.patch('/user/:id', async (req, res) => {
-    let result = await client.db("teeshihqun").collection("lab").updateOne(
-      {
-        _id: new ObjectId(req.params.id),
-      },
-      {
-        $set: {
-          email: req.body.email,
+  try{
+    let decoded=jwt.verify(token,'secretkey');
+    if(decoded._id==req.params.id){
+      console.log("authorized")
+        let result = await client.db("teeshihqun").collection("lab").updateOne(
+        {
+          _id: new ObjectId(req.params.id),
         },
-      });
-    console.log(result);
-    res.json(result);
-  })
+        {
+          $set: 
+          {
+            email: req.body.email,
+          },
+        });
+      console.log(result);
+      res.json(result);
+    }
+    else{
+      res.json("unauthorized")
+    }
+  }
+  catch(err){
+    res.json("unauthorized")
+  }
+})
   
-  app.delete('/user/:id', async (req, res) => {
-    let result = await client.db("teeshihqun").collection("lab").deleteOne(
-      {
-        _id: new ObjectId(req.params.id),
-      });
-    console.log(result);
-    res.json(result);
-  })
+//user endpoint
+app.delete('/user/:id', async (req, res) => {
+  let result = await client.db("teeshihqun").collection("lab").deleteOne(
+    {
+      _id: new ObjectId(req.params.id),
+    });
+  console.log(result);
+  res.json(result);
+})
