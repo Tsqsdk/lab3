@@ -78,11 +78,11 @@ app.post('/login', async (req, res) => {
   } else {
     res.json("login failed");
   }
-})
+});
 
 //user endpoint
 app.get('/user/:id', verifyToken, async (req, res) => {
-  console.log(req.params.username);
+  console.log(req.params.id);
   if(req.user._id == req.params.id){
     console.log("authorized")
     let result = await client.db("teeshihqun").collection("lab").findOne(
@@ -91,8 +91,10 @@ app.get('/user/:id', verifyToken, async (req, res) => {
       });
     console.log(result);
     res.json(result);
+  }else{
+    res.json("unauthorized");
   }
-})
+});
 
 //user endpoint
 app.patch('/user/:id', verifyToken, async (req, res) => {
@@ -110,8 +112,10 @@ app.patch('/user/:id', verifyToken, async (req, res) => {
         });
       console.log(result);
       res.json(result);
+    }else{
+      res.json("unauthorized");
     }
-})
+});
   
 //user endpoint
 app.delete('/user/:id', verifyToken, async (req, res) => {
@@ -123,5 +127,7 @@ app.delete('/user/:id', verifyToken, async (req, res) => {
       });
     console.log(result);
     res.json(result);
+  }else{
+    res.json("unauthorized");
   }
-})
+});
